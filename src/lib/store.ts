@@ -317,6 +317,20 @@ export async function listActivity(applicationId: string, userId: string): Promi
   return rows.map(toActivity);
 }
 
+// AI usage rate limiting
+
+const AI_DAILY_LIMIT = 20;
+
+export async function checkAndRecordAiUsage(userId: string): Promise<boolean> {
+  const rows = await sql`
+    select count(*)::int as count from ai_usage_log
+    where user_id = ${userId} and created_at > now() - interval '1 day'
+  `;
+  if (rows[0].count >= AI_DAILY_LIMIT) return false;
+  await sql`insert into ai_usage_log (user_id) values (${userId})`;
+  return true;
+}
+
 // dashboard
 
 const CLOSED_STAGES = ["offer", "rejected", "ghosted", "withdrawn"];

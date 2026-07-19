@@ -18,6 +18,10 @@ function nullableStr(formData: FormData, key: string): string | null {
 }
 
 export async function extractJobPosting(text: string): Promise<ExtractedJob | { error: string }> {
+  const userId = await requireUserId();
+  if (!(await store.checkAndRecordAiUsage(userId))) {
+    return { error: "Daily AI usage limit reached — try again tomorrow." };
+  }
   try {
     return await extractJobDetails(text);
   } catch {
@@ -76,6 +80,10 @@ export async function deleteApplication(id: string) {
 }
 
 export async function discoverContacts(companyName: string): Promise<ContactCandidate[] | { error: string }> {
+  const userId = await requireUserId();
+  if (!(await store.checkAndRecordAiUsage(userId))) {
+    return { error: "Daily AI usage limit reached — try again tomorrow." };
+  }
   try {
     return await findContacts(companyName);
   } catch {
@@ -110,6 +118,10 @@ export async function tailorResume(
   jobDescription: string,
   baseResume: string
 ): Promise<string | { error: string }> {
+  const userId = await requireUserId();
+  if (!(await store.checkAndRecordAiUsage(userId))) {
+    return { error: "Daily AI usage limit reached — try again tomorrow." };
+  }
   try {
     return await tailorResumeWithGroq(baseResume, jobDescription);
   } catch {
