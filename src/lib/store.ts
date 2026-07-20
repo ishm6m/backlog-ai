@@ -413,6 +413,11 @@ export async function saveBaseResume(userId: string, content: string) {
   `;
 }
 
+export async function isEmailVerified(email: string): Promise<boolean> {
+  const rows = await sql`select "emailVerified" from neon_auth."user" where email = ${email}`;
+  return rows[0]?.emailVerified === true;
+}
+
 // AI usage rate limiting
 
 export async function getAiUsageToday(userId: string): Promise<number> {

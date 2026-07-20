@@ -24,7 +24,14 @@ export default async function SignupPage({
           <Label htmlFor="password">Password</Label>
           <Input id="password" name="password" type="password" required minLength={8} />
         </div>
-        {error && <p className="text-sm text-destructive">Enter a valid email and a password of at least 8 characters.</p>}
+        {error === "1" && <p className="text-sm text-destructive">Enter a valid email and a password of at least 8 characters.</p>}
+        {error === "exists" && (
+          <p className="text-sm text-destructive">
+            An account with this email already exists —{" "}
+            <Link href="/login" className="underline">log in instead</Link>.
+          </p>
+        )}
+        {error === "failed" && <p className="text-sm text-destructive">Couldn&apos;t create your account — try again.</p>}
         <Button type="submit" className="w-full">
           Sign up
         </Button>
