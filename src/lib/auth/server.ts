@@ -15,3 +15,11 @@ export async function requireUserId(): Promise<string> {
   }
   return session.user.id;
 }
+
+export async function requireUser(): Promise<{ id: string; email: string }> {
+  const { data: session } = await auth.getSession();
+  if (!session?.user) {
+    redirect("/login");
+  }
+  return { id: session.user.id, email: session.user.email };
+}

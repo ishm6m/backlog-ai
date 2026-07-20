@@ -317,16 +317,64 @@ export async function listActivity(applicationId: string, userId: string): Promi
   return rows.map(toActivity);
 }
 
+// subscriptions
+
+export type Plan = "free" | "pro";
+
+export const PLAN_AI_LIMITS: Record<Plan, number> = { free: 20, pro: 200 };
+
+export type Subscription = {
+  plan: Plan;
+  status: string;
+  dodoCustomerId: string | null;
+  dodoSubscriptionId: string | null;
+  currentPeriodEnd: string | null;
+};
+
+export async function getSubscription(userId: string): Promise<Subscription> {
+  const rows = await sql`select * from subscriptions where user_id = ${userId}`;
+  const r = rows[0];
+  if (!r) return { plan: "free", status: "free", dodoCustomerId: null, dodoSubscriptionId: null, currentPeriodEnd: null };
+  return {
+    plan: r.plan,
+    status: r.status,
+    dodoCustomerId: r.dodo_customer_id,
+    dodoSubscriptionId: r.dodo_subscription_id,
+    currentPeriodEnd: r.current_period_end,
+  };
+}
+
+export async function upsertSubscription(
+  userId: string,
+  input: { dodoCustomerId: string; dodoSubscriptionId: string; plan: Plan; status: string; currentPeriodEnd: string | null }
+) {
+  await sql`
+    insert into subscriptions (user_id, dodo_customer_id, dodo_subscription_id, plan, status, current_period_end, updated_at)
+    values (${userId}, ${input.dodoCustomerId}, ${input.dodoSubscriptionId}, ${input.plan}, ${input.status}, ${input.currentPeriodEnd}, now())
+    on conflict (user_id) do update set
+      dodo_customer_id = excluded.dodo_customer_id,
+      dodo_subscription_id = excluded.dodo_subscription_id,
+      plan = excluded.plan,
+      status = excluded.status,
+      current_period_end = excluded.current_period_end,
+      updated_at = now()
+  `;
+}
+
 // AI usage rate limiting
 
-const AI_DAILY_LIMIT = 20;
-
-export async function checkAndRecordAiUsage(userId: string): Promise<boolean> {
+export async function getAiUsageToday(userId: string): Promise<number> {
   const rows = await sql`
     select count(*)::int as count from ai_usage_log
     where user_id = ${userId} and created_at > now() - interval '1 day'
   `;
-  if (rows[0].count >= AI_DAILY_LIMIT) return false;
+  return rows[0].count;
+}
+
+export async function checkAndRecordAiUsage(userId: string): Promise<boolean> {
+  const { plan } = await getSubscription(userId);
+  const used = await getAiUsageToday(userId);
+  if (used >= PLAN_AI_LIMITS[plan]) return false;
   await sql`insert into ai_usage_log (user_id) values (${userId})`;
   return true;
 }

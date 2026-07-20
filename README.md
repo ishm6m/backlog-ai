@@ -31,6 +31,10 @@ Backlog AI keeps job applications organized in one pipeline: stage tracking, con
 
 **Self-host:** clone the repo and bring your own Groq/Serper/Neon keys — each deployment's data is fully isolated per account, so this also works as a multi-user instance if you host it yourself.
 
+## Pricing
+
+Free plan includes unlimited applications/contacts and 20 AI calls/day (job extraction, contact discovery, resume tailoring). Pro ($12/mo) raises that to 200/day, sold through [Dodo Payments](https://dodopayments.com). Billing is optional — self-hosted instances run fine without Dodo keys set, everyone just stays on the free plan.
+
 ## Getting started
 
 ```bash
@@ -47,6 +51,7 @@ Fill in `.env.local` with your own values:
 - `SERPER_API_KEY` — Serper API key (search)
 - `NEON_AUTH_BASE_URL` — Neon Auth base URL
 - `NEON_AUTH_COOKIE_SECRET` — Neon Auth cookie secret
+- `DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_WEBHOOK_KEY`, `DODO_PRO_PRODUCT_ID` — optional, only needed to sell the Pro plan
 
 ```bash
 npm run dev

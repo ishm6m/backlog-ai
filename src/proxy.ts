@@ -17,6 +17,6 @@ export default function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!login|signup|forgot-password|reset-password|verify-email|api/auth|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|signup|forgot-password|reset-password|verify-email|pricing|api/auth|api/dodo/webhook|_next/static|_next/image|favicon.ico).*)",
   ],
 };
