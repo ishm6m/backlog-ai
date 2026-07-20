@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import {
+  bulkUpdateStage,
   markFollowedUp,
   snoozeApplication,
   snoozeContact,
@@ -103,6 +105,48 @@ export function ColdRow({ item }: { item: ApplicationItem }) {
         <SnoozeMenu onSnooze={(days) => snoozeApplication(item.id, days)} />
       </div>
     </Row>
+  );
+}
+
+export function InterviewRow({ item }: { item: ApplicationItem }) {
+  const when = item.daysSince === 0 ? "today" : item.daysSince === 1 ? "tomorrow" : `in ${item.daysSince} days`;
+  return (
+    <Row>
+      <Link href={`/applications/${item.id}`} className="min-w-0 flex-1 hover:underline">
+        <span className="font-medium">Interview {when} — {item.companyName}</span>
+        <span className="ml-2 text-sm text-muted-foreground">
+          {item.roleTitle} · review the job description and your notes
+        </span>
+      </Link>
+    </Row>
+  );
+}
+
+export function DeadApplicationsBanner({ items }: { items: ApplicationItem[] }) {
+  const router = useRouter();
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3">
+      <p className="text-sm text-muted-foreground">
+        {items.length} application{items.length > 1 ? "s" : ""} silent for 30+ days —{" "}
+        {items.map((i) => i.companyName).slice(0, 3).join(", ")}
+        {items.length > 3 && ` +${items.length - 3} more`}
+      </p>
+      <div className="flex shrink-0 items-center gap-1">
+        <Button variant="ghost" size="sm" onClick={() => router.push("/applications")}>
+          Review
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            await bulkUpdateStage(items.map((i) => i.id), "closed", "ghosted");
+            toast.success(`Closed ${items.length} as ghosted — reopen anytime from the pipeline`);
+          }}
+        >
+          Close all as ghosted
+        </Button>
+      </div>
+    </div>
   );
 }
 

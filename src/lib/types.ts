@@ -40,6 +40,7 @@ export type Application = {
   stage: Stage;
   closeReason: CloseReason | null;
   appliedDate: string | null;
+  interviewDate: string | null;
   followUpOn: string | null;
   notes: string;
   createdAt: string;

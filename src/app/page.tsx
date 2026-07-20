@@ -2,14 +2,20 @@ import Link from "next/link";
 import { getTodayData } from "@/lib/store";
 import { requireUserId } from "@/lib/auth/server";
 import { Button } from "@/components/ui/button";
-import { ColdRow, FollowUpRow, SavedRow } from "./today-rows";
+import { ColdRow, DeadApplicationsBanner, FollowUpRow, InterviewRow, SavedRow } from "./today-rows";
 
 export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
   const userId = await requireUserId();
-  const { summary, followUps, goingCold, savedNotApplied } = await getTodayData(userId);
-  const nothingDue = followUps.length === 0 && goingCold.length === 0 && savedNotApplied.length === 0;
+  const { summary, followUps, goingCold, savedNotApplied, interviews, deadApplications } =
+    await getTodayData(userId);
+  const nothingDue =
+    followUps.length === 0 &&
+    goingCold.length === 0 &&
+    savedNotApplied.length === 0 &&
+    interviews.length === 0 &&
+    deadApplications.length === 0;
 
   const summaryParts = [`${summary.active} active`];
   if (summary.interviewing > 0) summaryParts.push(`${summary.interviewing} interviewing`);
@@ -37,6 +43,16 @@ export default async function TodayPage() {
         </div>
       ) : (
         <div className="space-y-8">
+          {interviews.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-xs font-medium text-muted-foreground">
+                Interviews ({interviews.length})
+              </h2>
+              {interviews.map((item) => (
+                <InterviewRow key={item.id} item={item} />
+              ))}
+            </section>
+          )}
           {followUps.length > 0 && (
             <section className="space-y-2">
               <h2 className="text-xs font-medium text-muted-foreground">
@@ -67,6 +83,7 @@ export default async function TodayPage() {
               ))}
             </section>
           )}
+          {deadApplications.length > 0 && <DeadApplicationsBanner items={deadApplications} />}
         </div>
       )}
     </div>

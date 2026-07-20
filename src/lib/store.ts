@@ -17,6 +17,7 @@ function toApplication(r: any): Application {
     stage: r.stage,
     closeReason: r.close_reason,
     appliedDate: r.applied_date,
+    interviewDate: r.interview_date,
     followUpOn: r.follow_up_on,
     notes: r.notes,
     createdAt: r.created_at,
@@ -120,9 +121,9 @@ export async function createApplication(
 ): Promise<Application> {
   const rows = await sql`
     insert into applications
-      (user_id, company_name, role_title, job_url, job_description, location, salary_range, source, stage, close_reason, applied_date, follow_up_on, notes)
+      (user_id, company_name, role_title, job_url, job_description, location, salary_range, source, stage, close_reason, applied_date, interview_date, follow_up_on, notes)
     values
-      (${userId}, ${input.companyName}, ${input.roleTitle}, ${input.jobUrl}, ${input.jobDescription}, ${input.location}, ${input.salaryRange}, ${input.source}, ${input.stage}, ${input.closeReason}, ${input.appliedDate}, ${input.followUpOn}, ${input.notes})
+      (${userId}, ${input.companyName}, ${input.roleTitle}, ${input.jobUrl}, ${input.jobDescription}, ${input.location}, ${input.salaryRange}, ${input.source}, ${input.stage}, ${input.closeReason}, ${input.appliedDate}, ${input.interviewDate}, ${input.followUpOn}, ${input.notes})
     returning *
   `;
   const app = toApplication(rows[0]);
@@ -157,6 +158,7 @@ export async function updateApplication(
       stage = ${merged.stage},
       close_reason = ${merged.closeReason},
       applied_date = ${merged.appliedDate},
+      interview_date = ${merged.interviewDate},
       follow_up_on = ${merged.followUpOn},
       notes = ${merged.notes},
       updated_at = now()
@@ -440,7 +442,7 @@ export type FollowUpItem = Contact & {
 export type ApplicationItem = Application & { daysSince: number };
 
 export async function getTodayData(userId: string) {
-  const [summaryRows, followUpRows, coldRows, savedRows] = await Promise.all([
+  const [summaryRows, followUpRows, coldRows, savedRows, interviewRows, deadRows] = await Promise.all([
     sql`
       select
         count(*) filter (where stage != 'closed')::int as active,
@@ -467,6 +469,7 @@ export async function getTodayData(userId: string) {
       where user_id = ${userId}
         and stage = 'applied'
         and coalesce(follow_up_on, coalesce(applied_date::date, updated_at::date) + 14) <= current_date
+        and updated_at >= now() - interval '30 days'
       order by applied_date asc nulls last
     `,
     sql`
@@ -476,6 +479,22 @@ export async function getTodayData(userId: string) {
         and stage = 'saved'
         and coalesce(follow_up_on, created_at::date + 3) <= current_date
       order by created_at asc
+    `,
+    sql`
+      select *, (interview_date::date - current_date)::int as days_since
+      from applications
+      where user_id = ${userId}
+        and stage = 'interviewing'
+        and interview_date between current_date and current_date + 2
+      order by interview_date asc
+    `,
+    sql`
+      select *, (current_date - updated_at::date)::int as days_since
+      from applications
+      where user_id = ${userId}
+        and stage = 'applied'
+        and updated_at < now() - interval '30 days'
+      order by updated_at asc
     `,
   ]);
 
@@ -490,5 +509,7 @@ export async function getTodayData(userId: string) {
     })),
     goingCold: coldRows.map((r: any): ApplicationItem => ({ ...toApplication(r), daysSince: r.days_since })),
     savedNotApplied: savedRows.map((r: any): ApplicationItem => ({ ...toApplication(r), daysSince: r.days_since })),
+    interviews: interviewRows.map((r: any): ApplicationItem => ({ ...toApplication(r), daysSince: r.days_since })),
+    deadApplications: deadRows.map((r: any): ApplicationItem => ({ ...toApplication(r), daysSince: r.days_since })),
   };
 }

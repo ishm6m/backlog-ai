@@ -48,6 +48,7 @@ export async function createApplication(formData: FormData) {
     stage: str(formData, "stage") as Stage,
     closeReason: null,
     appliedDate: nullableStr(formData, "appliedDate"),
+    interviewDate: null,
     followUpOn: null,
     notes: str(formData, "notes"),
   });
@@ -84,6 +85,7 @@ export async function quickCreateApplication(
     stage: "saved",
     closeReason: null,
     appliedDate: null,
+    interviewDate: null,
     followUpOn: null,
     notes: "",
   });
@@ -108,6 +110,37 @@ export async function updateApplication(id: string, formData: FormData) {
   });
   revalidatePath("/applications");
   revalidatePath(`/applications/${id}`);
+}
+
+export type ApplicationFieldPatch = Partial<{
+  companyName: string;
+  roleTitle: string;
+  jobUrl: string | null;
+  jobDescription: string | null;
+  location: string | null;
+  salaryRange: string | null;
+  source: Source;
+  appliedDate: string | null;
+  interviewDate: string | null;
+  followUpOn: string | null;
+  notes: string;
+}>;
+
+export async function updateApplicationField(id: string, patch: ApplicationFieldPatch) {
+  const userId = await requireUserId();
+  await store.updateApplication(id, userId, patch);
+  revalidatePath("/");
+  revalidatePath("/applications");
+  revalidatePath(`/applications/${id}`);
+}
+
+export async function bulkUpdateStage(ids: string[], stage: Stage, closeReason?: CloseReason) {
+  const userId = await requireUserId();
+  for (const id of ids) {
+    await store.updateApplication(id, userId, { stage, closeReason: closeReason ?? null });
+  }
+  revalidatePath("/");
+  revalidatePath("/applications");
 }
 
 export async function updateStage(id: string, stage: Stage, closeReason?: CloseReason) {

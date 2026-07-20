@@ -2,28 +2,24 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   FileText,
-  FolderKanban,
   FolderPlus,
-  History,
-  Info,
   Send,
   Sparkles,
   UserPlus,
-  Users,
   ArrowRightLeft,
   Circle,
 } from "lucide-react";
 import { getApplication, getBaseResume, listContacts, listCustomProjects, listDocuments, listActivity } from "@/lib/store";
 import { requireUserId } from "@/lib/auth/server";
-import { StageBadge } from "@/components/stage-badge";
+import { StageMenu } from "@/components/stage-menu";
+import { InlineField, InlineTextarea } from "@/components/inline-field";
 import { OutreachStatusBadge, ProjectStatusBadge } from "@/components/status-badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ApplicationForm } from "./application-form";
 import { ContactDialog } from "./contact-dialog";
 import { MessagedButton } from "./messaged-button";
 import { DiscoverContactsPanel } from "./discover-contacts-panel";
 import { ProjectDialog } from "./project-dialog";
 import { ResumePanel } from "./resume-panel";
+import { SourceSelect } from "./source-select";
 import { DeleteApplicationButton } from "./delete-application-button";
 
 const ACTIVITY_ICONS: Record<string, typeof Circle> = {
@@ -40,6 +36,15 @@ const ACTIVITY_ICONS: Record<string, typeof Circle> = {
 };
 
 export const dynamic = "force-dynamic";
+
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      {children}
+    </div>
+  );
+}
 
 export default async function ApplicationDetailPage({
   params,
@@ -58,106 +63,159 @@ export default async function ApplicationDetailPage({
     listActivity(id, userId),
     getBaseResume(userId),
   ]);
+  const resumeDocs = documents.filter((d) => d.type === "resume");
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
-      <div className="mb-8 flex items-start justify-between gap-4">
-        <div>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="min-w-0">
           <Link href="/applications" className="text-sm text-muted-foreground hover:text-foreground">
             ← Pipeline
           </Link>
           <div className="mt-2 flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">{application.roleTitle}</h1>
-            <StageBadge stage={application.stage} closeReason={application.closeReason} />
+            <InlineField
+              applicationId={id}
+              name="roleTitle"
+              value={application.roleTitle}
+              placeholder="Role title"
+              nullable={false}
+              className="text-2xl font-semibold tracking-tight"
+            />
+            <StageMenu app={application} />
           </div>
-          <p className="text-sm text-muted-foreground">{application.companyName}</p>
+          <InlineField
+            applicationId={id}
+            name="companyName"
+            value={application.companyName}
+            placeholder="Company"
+            nullable={false}
+            className="text-muted-foreground"
+          />
         </div>
         <DeleteApplicationButton id={application.id} companyName={application.companyName} />
       </div>
 
-      <Tabs defaultValue="details">
-        <TabsList className="w-full justify-start">
-          <TabsTrigger value="details">
-            <Info /> Details
-          </TabsTrigger>
-          <TabsTrigger value="contacts">
-            <Users /> Contacts{contacts.length > 0 && ` (${contacts.length})`}
-          </TabsTrigger>
-          <TabsTrigger value="projects">
-            <FolderKanban /> Projects{projects.length > 0 && ` (${projects.length})`}
-          </TabsTrigger>
-          <TabsTrigger value="resume">
-            <FileText /> Resume
-          </TabsTrigger>
-          <TabsTrigger value="activity">
-            <History /> Activity
-          </TabsTrigger>
-        </TabsList>
+      <div className="mb-8 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border bg-card px-4 py-3">
+        <Fact label="Location">
+          <InlineField applicationId={id} name="location" value={application.location} placeholder="add" />
+        </Fact>
+        <Fact label="Salary">
+          <InlineField applicationId={id} name="salaryRange" value={application.salaryRange} placeholder="add" />
+        </Fact>
+        <Fact label="Source">
+          <SourceSelect applicationId={id} value={application.source} />
+        </Fact>
+        <Fact label="Applied">
+          <InlineField applicationId={id} name="appliedDate" value={application.appliedDate} placeholder="add" type="date" />
+        </Fact>
+        <Fact label="Interview">
+          <InlineField applicationId={id} name="interviewDate" value={application.interviewDate} placeholder="add" type="date" />
+        </Fact>
+        <Fact label="Follow up">
+          <InlineField applicationId={id} name="followUpOn" value={application.followUpOn} placeholder="add" type="date" />
+        </Fact>
+        <Fact label="URL">
+          <InlineField applicationId={id} name="jobUrl" value={application.jobUrl} placeholder="add" type="url" className="max-w-48 truncate" />
+        </Fact>
+      </div>
 
-        <TabsContent value="details" className="mt-6">
-          <section className="rounded-xl border bg-card p-6">
-            <ApplicationForm application={application} />
-          </section>
-        </TabsContent>
-
-        <TabsContent value="contacts" className="mt-6">
-          <section>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-medium text-muted-foreground">
-                Contacts {contacts.length > 0 && `(${contacts.length})`}
-              </h2>
-              <ContactDialog applicationId={id} />
+      <div className="space-y-8">
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-medium text-muted-foreground">
+              Contacts {contacts.length > 0 && `(${contacts.length})`}
+            </h2>
+            <ContactDialog applicationId={id} />
+          </div>
+          <DiscoverContactsPanel applicationId={id} companyName={application.companyName} />
+          {contacts.length === 0 ? (
+            <div className="rounded-xl border border-dashed py-8 text-center text-sm text-muted-foreground">
+              No contacts yet — find someone to reach out to.
             </div>
-            <DiscoverContactsPanel applicationId={id} companyName={application.companyName} />
-            {contacts.length === 0 ? (
-              <div className="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">
-                No contacts yet.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {contacts.map((contact) => (
-                  <div
-                    key={contact.id}
-                    className="flex items-center justify-between rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-accent/40"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{contact.name}</span>
-                        <span className="text-sm text-muted-foreground">{contact.role}</span>
-                      </div>
-                      <div className="mt-1">
-                        <OutreachStatusBadge status={contact.outreachStatus} />
-                      </div>
+          ) : (
+            <div className="space-y-2">
+              {contacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  className="flex items-center justify-between rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-accent/40"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{contact.name}</span>
+                      <span className="text-sm text-muted-foreground">{contact.role}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      {contact.outreachStatus === "not_contacted" && (
-                        <MessagedButton
-                          contactId={contact.id}
-                          applicationId={id}
-                          contactName={contact.name}
-                        />
-                      )}
-                      <ContactDialog applicationId={id} contact={contact} />
+                    <div className="mt-1">
+                      <OutreachStatusBadge status={contact.outreachStatus} />
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </TabsContent>
+                  <div className="flex items-center gap-1">
+                    {contact.outreachStatus === "not_contacted" && (
+                      <MessagedButton
+                        contactId={contact.id}
+                        applicationId={id}
+                        contactName={contact.name}
+                      />
+                    )}
+                    <ContactDialog applicationId={id} contact={contact} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
-        <TabsContent value="projects" className="mt-6">
-          <section>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-medium text-muted-foreground">
-                Custom projects {projects.length > 0 && `(${projects.length})`}
-              </h2>
+        <section>
+          <h2 className="mb-3 text-sm font-medium text-muted-foreground">Notes</h2>
+          <InlineTextarea
+            applicationId={id}
+            name="notes"
+            value={application.notes}
+            placeholder="Anything worth remembering — interviewers, gut feel, next steps"
+          />
+        </section>
+
+        <details className="group rounded-xl border bg-card px-4 py-3" open={!!application.jobDescription}>
+          <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+            Job description
+          </summary>
+          <div className="mt-3">
+            <InlineTextarea
+              applicationId={id}
+              name="jobDescription"
+              value={application.jobDescription}
+              placeholder="Paste the job description — needed for resume tailoring"
+              rows={8}
+              nullable
+            />
+          </div>
+        </details>
+
+        <details className="rounded-xl border bg-card px-4 py-3" open={resumeDocs.length > 0}>
+          <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+            Resume {resumeDocs.length > 0 && `(${resumeDocs.length} version${resumeDocs.length > 1 ? "s" : ""})`}
+          </summary>
+          <div className="mt-4">
+            <ResumePanel
+              applicationId={id}
+              jobDescription={application.jobDescription}
+              documents={resumeDocs}
+              initialBaseResume={baseResume}
+            />
+          </div>
+        </details>
+
+        <details className="rounded-xl border bg-card px-4 py-3" open={projects.length > 0}>
+          <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+            Projects {projects.length > 0 && `(${projects.length})`}
+          </summary>
+          <div className="mt-4">
+            <div className="mb-3 flex justify-end">
               <ProjectDialog applicationId={id} />
             </div>
             {projects.length === 0 ? (
-              <div className="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">
+              <p className="pb-2 text-center text-sm text-muted-foreground">
                 No custom projects yet.
-              </div>
+              </p>
             ) : (
               <div className="space-y-2">
                 {projects.map((project) => (
@@ -176,26 +234,18 @@ export default async function ApplicationDetailPage({
                 ))}
               </div>
             )}
-          </section>
-        </TabsContent>
+          </div>
+        </details>
 
-        <TabsContent value="resume" className="mt-6">
-          <section>
-            <ResumePanel
-              applicationId={id}
-              jobDescription={application.jobDescription}
-              documents={documents.filter((d) => d.type === "resume")}
-              initialBaseResume={baseResume}
-            />
-          </section>
-        </TabsContent>
-
-        <TabsContent value="activity" className="mt-6">
-          <section>
+        <details className="rounded-xl border bg-card px-4 py-3">
+          <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+            Activity {activity.length > 0 && `(${activity.length})`}
+          </summary>
+          <div className="mt-4">
             {activity.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No activity yet.</p>
+              <p className="pb-2 text-sm text-muted-foreground">No activity yet.</p>
             ) : (
-              <ol className="space-y-3">
+              <ol className="space-y-3 pb-2">
                 {activity.map((entry) => {
                   const Icon = ACTIVITY_ICONS[entry.eventType] ?? Circle;
                   return (
@@ -210,9 +260,9 @@ export default async function ApplicationDetailPage({
                 })}
               </ol>
             )}
-          </section>
-        </TabsContent>
-      </Tabs>
+          </div>
+        </details>
+      </div>
     </div>
   );
 }
