@@ -6,19 +6,21 @@ import {
   FolderPlus,
   History,
   Info,
+  Send,
   Sparkles,
   UserPlus,
   Users,
   ArrowRightLeft,
   Circle,
 } from "lucide-react";
-import { getApplication, listContacts, listCustomProjects, listDocuments, listActivity } from "@/lib/store";
+import { getApplication, getBaseResume, listContacts, listCustomProjects, listDocuments, listActivity } from "@/lib/store";
 import { requireUserId } from "@/lib/auth/server";
 import { StageBadge } from "@/components/stage-badge";
 import { OutreachStatusBadge, ProjectStatusBadge } from "@/components/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApplicationForm } from "./application-form";
 import { ContactDialog } from "./contact-dialog";
+import { MessagedButton } from "./messaged-button";
 import { DiscoverContactsPanel } from "./discover-contacts-panel";
 import { ProjectDialog } from "./project-dialog";
 import { ResumePanel } from "./resume-panel";
@@ -28,7 +30,12 @@ const ACTIVITY_ICONS: Record<string, typeof Circle> = {
   created: Sparkles,
   stage_change: ArrowRightLeft,
   contact_added: UserPlus,
+  contact_updated: UserPlus,
+  contact_removed: UserPlus,
+  outreach_sent: Send,
   project_added: FolderPlus,
+  project_updated: FolderPlus,
+  project_removed: FolderPlus,
   document_added: FileText,
 };
 
@@ -44,11 +51,12 @@ export default async function ApplicationDetailPage({
   const application = await getApplication(id, userId);
   if (!application) notFound();
 
-  const [contacts, projects, documents, activity] = await Promise.all([
+  const [contacts, projects, documents, activity, baseResume] = await Promise.all([
     listContacts(id, userId),
     listCustomProjects(id, userId),
     listDocuments(id, userId),
     listActivity(id, userId),
+    getBaseResume(userId),
   ]);
 
   return (
@@ -121,7 +129,16 @@ export default async function ApplicationDetailPage({
                         <OutreachStatusBadge status={contact.outreachStatus} />
                       </div>
                     </div>
-                    <ContactDialog applicationId={id} contact={contact} />
+                    <div className="flex items-center gap-1">
+                      {contact.outreachStatus === "not_contacted" && (
+                        <MessagedButton
+                          contactId={contact.id}
+                          applicationId={id}
+                          contactName={contact.name}
+                        />
+                      )}
+                      <ContactDialog applicationId={id} contact={contact} />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -168,6 +185,7 @@ export default async function ApplicationDetailPage({
               applicationId={id}
               jobDescription={application.jobDescription}
               documents={documents.filter((d) => d.type === "resume")}
+              initialBaseResume={baseResume}
             />
           </section>
         </TabsContent>

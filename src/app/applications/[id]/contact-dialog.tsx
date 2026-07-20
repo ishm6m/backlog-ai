@@ -37,6 +37,7 @@ export function ContactDialog({
   contact?: Contact;
 }) {
   const [open, setOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const isEdit = !!contact;
   const action = isEdit
     ? updateContact.bind(null, contact.id, applicationId)
@@ -160,13 +161,18 @@ export function ContactDialog({
             {isEdit ? (
               <Button
                 type="button"
-                variant="destructive"
+                variant={confirmDelete ? "destructive" : "ghost"}
                 onClick={async () => {
+                  if (!confirmDelete) {
+                    setConfirmDelete(true);
+                    return;
+                  }
                   await deleteContact(contact.id, applicationId);
                   setOpen(false);
+                  setConfirmDelete(false);
                 }}
               >
-                <Trash2 /> Delete
+                <Trash2 /> {confirmDelete ? "Confirm delete" : "Delete"}
               </Button>
             ) : (
               <div />

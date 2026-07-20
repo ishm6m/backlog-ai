@@ -36,6 +36,7 @@ export function ProjectDialog({
   project?: CustomProject;
 }) {
   const [open, setOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const isEdit = !!project;
   const action = isEdit
     ? updateCustomProject.bind(null, project.id, applicationId)
@@ -108,13 +109,18 @@ export function ProjectDialog({
             {isEdit ? (
               <Button
                 type="button"
-                variant="destructive"
+                variant={confirmDelete ? "destructive" : "ghost"}
                 onClick={async () => {
+                  if (!confirmDelete) {
+                    setConfirmDelete(true);
+                    return;
+                  }
                   await deleteCustomProject(project.id, applicationId);
                   setOpen(false);
+                  setConfirmDelete(false);
                 }}
               >
-                <Trash2 /> Delete
+                <Trash2 /> {confirmDelete ? "Confirm delete" : "Delete"}
               </Button>
             ) : (
               <div />

@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { QuickAdd } from "@/components/quick-add";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -48,6 +49,7 @@ export function NavBar() {
             );
           })}
         </nav>
+        <QuickAdd />
         <DropdownMenu>
           <DropdownMenuTrigger
             render={<Button variant="ghost" size="sm" aria-label="Account" />}

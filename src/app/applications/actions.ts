@@ -55,6 +55,43 @@ export async function createApplication(formData: FormData) {
   redirect(`/applications/${app.id}`);
 }
 
+export async function quickCreateApplication(
+  input: {
+    companyName: string;
+    roleTitle: string;
+    location: string;
+    salaryRange: string;
+    source: Source;
+    jobDescription: string;
+  },
+  force = false
+): Promise<{ id: string } | { duplicateOf: { id: string; companyName: string; roleTitle: string } }> {
+  const userId = await requireUserId();
+  if (!force) {
+    const dup = await store.findDuplicateApplication(userId, input.companyName);
+    if (dup) {
+      return { duplicateOf: { id: dup.id, companyName: dup.companyName, roleTitle: dup.roleTitle } };
+    }
+  }
+  const app = await store.createApplication(userId, {
+    companyName: input.companyName,
+    roleTitle: input.roleTitle,
+    jobUrl: null,
+    jobDescription: input.jobDescription || null,
+    location: input.location || null,
+    salaryRange: input.salaryRange || null,
+    source: input.source,
+    stage: "saved",
+    closeReason: null,
+    appliedDate: null,
+    followUpOn: null,
+    notes: "",
+  });
+  revalidatePath("/");
+  revalidatePath("/applications");
+  return { id: app.id };
+}
+
 export async function updateApplication(id: string, formData: FormData) {
   const userId = await requireUserId();
   await store.updateApplication(id, userId, {
@@ -100,6 +137,24 @@ export async function markFollowedUp(id: string) {
     followUpOn: null,
   });
   revalidatePath("/");
+}
+
+export async function markMessaged(id: string, applicationId: string) {
+  const userId = await requireUserId();
+  const contact = await store.updateContact(id, userId, {
+    outreachStatus: "message_sent",
+    outreachSentDate: daysFromNow(0),
+  });
+  if (contact) {
+    await store.logActivity(applicationId, "outreach_sent", `Messaged ${contact.name}`);
+  }
+  revalidatePath("/");
+  revalidatePath(`/applications/${applicationId}`);
+}
+
+export async function saveBaseResume(content: string) {
+  const userId = await requireUserId();
+  await store.saveBaseResume(userId, content);
 }
 
 export async function deleteApplication(id: string) {
@@ -192,7 +247,7 @@ export async function createContact(applicationId: string, formData: FormData) {
 
 export async function updateContact(id: string, applicationId: string, formData: FormData) {
   const userId = await requireUserId();
-  await store.updateContact(id, userId, {
+  const updated = await store.updateContact(id, userId, {
     name: str(formData, "name"),
     role: str(formData, "role"),
     linkedinUrl: nullableStr(formData, "linkedinUrl"),
@@ -204,6 +259,9 @@ export async function updateContact(id: string, applicationId: string, formData:
     outreachChannel: nullableStr(formData, "outreachChannel") as OutreachChannel | null,
     messageSent: str(formData, "messageSent"),
   });
+  if (updated) {
+    await store.logActivity(updated.applicationId, "contact_updated", `Updated contact ${updated.name}`);
+  }
   revalidatePath(`/applications/${applicationId}`);
 }
 
@@ -230,7 +288,7 @@ export async function createCustomProject(applicationId: string, formData: FormD
 
 export async function updateCustomProject(id: string, applicationId: string, formData: FormData) {
   const userId = await requireUserId();
-  await store.updateCustomProject(id, userId, {
+  const updated = await store.updateCustomProject(id, userId, {
     title: str(formData, "title"),
     description: str(formData, "description"),
     projectUrl: nullableStr(formData, "projectUrl"),
@@ -239,6 +297,9 @@ export async function updateCustomProject(id: string, applicationId: string, for
     repliedDate: nullableStr(formData, "repliedDate"),
     notes: str(formData, "notes"),
   });
+  if (updated) {
+    await store.logActivity(updated.applicationId, "project_updated", `Updated project "${updated.title}"`);
+  }
   revalidatePath(`/applications/${applicationId}`);
 }
 

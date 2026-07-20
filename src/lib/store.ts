@@ -79,7 +79,7 @@ function toActivity(r: any): ActivityLogEntry {
   };
 }
 
-async function logActivity(applicationId: string, eventType: string, eventDescription: string) {
+export async function logActivity(applicationId: string, eventType: string, eventDescription: string) {
   await sql`
     insert into activity_log (application_id, event_type, event_description)
     values (${applicationId}, ${eventType}, ${eventDescription})
@@ -97,6 +97,20 @@ export async function listApplications(userId: string): Promise<Application[]> {
 
 export async function getApplication(id: string, userId: string): Promise<Application | undefined> {
   const rows = await sql`select * from applications where id = ${id} and user_id = ${userId}`;
+  return rows[0] ? toApplication(rows[0]) : undefined;
+}
+
+export async function findDuplicateApplication(
+  userId: string,
+  companyName: string
+): Promise<Application | undefined> {
+  const rows = await sql`
+    select * from applications
+    where user_id = ${userId}
+      and stage != 'closed'
+      and lower(company_name) = lower(${companyName})
+    limit 1
+  `;
   return rows[0] ? toApplication(rows[0]) : undefined;
 }
 
@@ -220,11 +234,15 @@ export async function updateContact(
 }
 
 export async function deleteContact(id: string, userId: string) {
-  await sql`
+  const rows = await sql`
     delete from contacts
     where id = ${id}
       and application_id in (select id from applications where user_id = ${userId})
+    returning application_id, name
   `;
+  if (rows[0]) {
+    await logActivity(rows[0].application_id, "contact_removed", `Removed contact ${rows[0].name}`);
+  }
 }
 
 // custom projects
@@ -284,11 +302,15 @@ export async function updateCustomProject(
 }
 
 export async function deleteCustomProject(id: string, userId: string) {
-  await sql`
+  const rows = await sql`
     delete from custom_projects
     where id = ${id}
       and application_id in (select id from applications where user_id = ${userId})
+    returning application_id, title
   `;
+  if (rows[0]) {
+    await logActivity(rows[0].application_id, "project_removed", `Removed project "${rows[0].title}"`);
+  }
 }
 
 // documents
@@ -371,6 +393,21 @@ export async function upsertSubscription(
       status = excluded.status,
       current_period_end = excluded.current_period_end,
       updated_at = now()
+  `;
+}
+
+// user profile
+
+export async function getBaseResume(userId: string): Promise<string> {
+  const rows = await sql`select base_resume from user_profile where user_id = ${userId}`;
+  return rows[0]?.base_resume ?? "";
+}
+
+export async function saveBaseResume(userId: string, content: string) {
+  await sql`
+    insert into user_profile (user_id, base_resume, updated_at)
+    values (${userId}, ${content}, now())
+    on conflict (user_id) do update set base_resume = excluded.base_resume, updated_at = now()
   `;
 }
 

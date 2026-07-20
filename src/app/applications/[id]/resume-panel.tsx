@@ -3,28 +3,26 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { tailorResume, saveDocument } from "@/app/applications/actions";
+import { tailorResume, saveDocument, saveBaseResume } from "@/app/applications/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Document } from "@/lib/types";
 
-const BASE_RESUME_KEY = "backlog-ai-base-resume";
-
 export function ResumePanel({
   applicationId,
   jobDescription,
   documents,
+  initialBaseResume,
 }: {
   applicationId: string;
   jobDescription: string | null;
   documents: Document[];
+  initialBaseResume: string;
 }) {
   const router = useRouter();
-  const [baseResume, setBaseResume] = useState(
-    () => (typeof window !== "undefined" && localStorage.getItem(BASE_RESUME_KEY)) || ""
-  );
+  const [baseResume, setBaseResume] = useState(initialBaseResume);
   const [tailored, setTailored] = useState("");
   const [versionLabel, setVersionLabel] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -32,7 +30,6 @@ export function ResumePanel({
 
   async function handleGenerate() {
     if (!baseResume.trim() || !jobDescription) return;
-    localStorage.setItem(BASE_RESUME_KEY, baseResume);
     setGenerating(true);
     const result = await tailorResume(jobDescription, baseResume);
     setGenerating(false);
@@ -68,7 +65,10 @@ export function ResumePanel({
           rows={6}
           value={baseResume}
           onChange={(e) => setBaseResume(e.target.value)}
-          placeholder="Paste your base resume text — this is remembered on this device for next time"
+          onBlur={() => {
+            if (baseResume !== initialBaseResume) saveBaseResume(baseResume);
+          }}
+          placeholder="Paste your base resume once — it's saved to your account and reused everywhere"
         />
       </div>
 
