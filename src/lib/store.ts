@@ -477,6 +477,16 @@ export type FollowUpItem = Contact & {
 };
 export type ApplicationItem = Application & { daysSince: number | null };
 
+export async function listDigestRecipients(): Promise<{ userId: string; email: string }[]> {
+  const rows = await sql`
+    select distinct u.id, u.email
+    from applications a
+    join neon_auth."user" u on u.id = a.user_id
+    where a.stage != 'closed' and u."emailVerified" = true
+  `;
+  return rows.map((r: any) => ({ userId: r.id, email: r.email }));
+}
+
 export async function getTodayData(userId: string) {
   const [summaryRows, followUpRows, coldRows, savedRows, interviewRows, offerRows, deadRows] = await Promise.all([
     sql`
