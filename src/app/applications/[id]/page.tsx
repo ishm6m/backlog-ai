@@ -110,6 +110,14 @@ export default async function ApplicationDetailPage({
         </Fact>
         <Fact label="Interview">
           <InlineField applicationId={id} name="interviewDate" value={application.interviewDate} placeholder="add" type="date" />
+          {application.interviewDate && (
+            <a
+              href={`/api/ics/${id}`}
+              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+            >
+              .ics
+            </a>
+          )}
         </Fact>
         <Fact label="Follow up">
           <InlineField applicationId={id} name="followUpOn" value={application.followUpOn} placeholder="add" type="date" />

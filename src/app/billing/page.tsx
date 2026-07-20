@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { requireUserId } from "@/lib/auth/server";
 import * as store from "@/lib/store";
 import { manageSubscription } from "./actions";
+import { DeleteAccountButton } from "./delete-account-button";
 
 export default async function BillingPage() {
   const userId = await requireUserId();
@@ -45,6 +46,19 @@ export default async function BillingPage() {
               Upgrade to Pro
             </Button>
           )}
+        </CardFooter>
+      </Card>
+
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>Your data</CardTitle>
+          <CardDescription>Download everything, or remove it for good.</CardDescription>
+        </CardHeader>
+        <CardFooter className="gap-2">
+          <Button variant="outline" size="sm" nativeButton={false} render={<a href="/api/export" />}>
+            Export CSV
+          </Button>
+          <DeleteAccountButton />
         </CardFooter>
       </Card>
     </div>

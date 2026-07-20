@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireUserId } from "@/lib/auth/server";
+import { auth, requireUserId } from "@/lib/auth/server";
 import { createCustomerPortalSession } from "@/lib/dodo";
 import * as store from "@/lib/store";
 
@@ -12,4 +12,11 @@ export async function manageSubscription() {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const link = await createCustomerPortalSession(sub.dodoCustomerId, appUrl);
   redirect(link);
+}
+
+export async function deleteAccount() {
+  const userId = await requireUserId();
+  await store.deleteAccount(userId);
+  await auth.signOut();
+  redirect("/signup");
 }

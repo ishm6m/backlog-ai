@@ -104,16 +104,44 @@ export async function getApplication(id: string, userId: string): Promise<Applic
 
 export async function findDuplicateApplication(
   userId: string,
-  companyName: string
+  companyName: string,
+  roleTitle: string
 ): Promise<Application | undefined> {
   const rows = await sql`
     select * from applications
     where user_id = ${userId}
       and stage != 'closed'
       and lower(company_name) = lower(${companyName})
+      and lower(role_title) = lower(${roleTitle})
     limit 1
   `;
   return rows[0] ? toApplication(rows[0]) : undefined;
+}
+
+// Runs before the AI extraction so an obvious re-paste doesn't burn a credit:
+// a job posting nearly always contains the company name verbatim.
+export async function findOpenApplicationMentionedIn(
+  userId: string,
+  text: string
+): Promise<Application | undefined> {
+  const rows = await sql`
+    select * from applications
+    where user_id = ${userId}
+      and stage != 'closed'
+      and length(company_name) >= 3
+      and position(lower(company_name) in lower(${text})) > 0
+    order by length(company_name) desc
+    limit 1
+  `;
+  return rows[0] ? toApplication(rows[0]) : undefined;
+}
+
+export async function deleteAccount(userId: string) {
+  await sql`delete from applications where user_id = ${userId}`;
+  await sql`delete from user_profile where user_id = ${userId}`;
+  await sql`delete from subscriptions where user_id = ${userId}`;
+  await sql`delete from ai_usage_log where user_id = ${userId}`;
+  await sql`delete from neon_auth."user" where id = ${userId}`;
 }
 
 export async function createApplication(

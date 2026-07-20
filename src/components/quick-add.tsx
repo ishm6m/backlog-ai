@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import { extractJobPosting, quickCreateApplication } from "@/app/applications/actions";
+import { extractJobPosting, findDuplicateInText, quickCreateApplication } from "@/app/applications/actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -71,8 +71,17 @@ export function QuickAdd({
     setDuplicate(null);
   }
 
-  async function handleExtract() {
+  async function handleExtract(force = false) {
     setExtracting(true);
+    if (!force) {
+      const dup = await findDuplicateInText(pasted);
+      if (dup) {
+        setExtracting(false);
+        setDuplicate(dup);
+        return;
+      }
+    }
+    setDuplicate(null);
     const result = await extractJobPosting(pasted);
     setExtracting(false);
     if ("error" in result) {
@@ -113,6 +122,36 @@ export function QuickAdd({
           <DialogTitle>Add a job</DialogTitle>
         </DialogHeader>
 
+        {duplicate && (
+          <div className="rounded-lg border border-dashed px-4 py-3 text-sm">
+            <p className="mb-2">
+              Looks like a duplicate of{" "}
+              <span className="font-medium">{duplicate.companyName} — {duplicate.roleTitle}</span>.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setOpen(false);
+                  reset();
+                  router.push(`/applications/${duplicate.id}`);
+                }}
+              >
+                Open existing
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => (extracted ? handleSave(true) : handleExtract(true))}
+                disabled={saving || extracting}
+              >
+                Add anyway
+              </Button>
+            </div>
+          </div>
+        )}
+
         {!extracted ? (
           <div className="space-y-3">
             <Textarea
@@ -123,7 +162,7 @@ export function QuickAdd({
               placeholder="Paste the job posting — AI pulls out the company, role, and details"
             />
             <div className="flex justify-end">
-              <Button onClick={handleExtract} disabled={extracting || !pasted.trim()}>
+              <Button onClick={() => handleExtract()} disabled={extracting || !pasted.trim()}>
                 {extracting ? "Extracting…" : "Extract"}
               </Button>
             </div>
@@ -138,30 +177,6 @@ export function QuickAdd({
                 {extracted.salaryRange && ` · ${extracted.salaryRange}`}
               </p>
             </div>
-
-            {duplicate && (
-              <div className="rounded-lg border border-dashed px-4 py-3 text-sm">
-                <p className="mb-2">
-                  Looks like a duplicate of <span className="font-medium">{duplicate.companyName} — {duplicate.roleTitle}</span>.
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setOpen(false);
-                      reset();
-                      router.push(`/applications/${duplicate.id}`);
-                    }}
-                  >
-                    Open existing
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleSave(true)} disabled={saving}>
-                    Add anyway
-                  </Button>
-                </div>
-              </div>
-            )}
 
             <div className="flex items-center justify-between">
               <Button variant="ghost" size="sm" onClick={() => setExtracted(null)}>

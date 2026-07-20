@@ -23,6 +23,14 @@ function daysFromNow(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+export async function findDuplicateInText(
+  text: string
+): Promise<{ id: string; companyName: string; roleTitle: string } | null> {
+  const userId = await requireUserId();
+  const dup = await store.findOpenApplicationMentionedIn(userId, text);
+  return dup ? { id: dup.id, companyName: dup.companyName, roleTitle: dup.roleTitle } : null;
+}
+
 export async function extractJobPosting(text: string): Promise<ExtractedJob | { error: string }> {
   const userId = await requireUserId();
   if (!(await store.checkAndRecordAiUsage(userId))) {
@@ -48,7 +56,7 @@ export async function quickCreateApplication(
 ): Promise<{ id: string } | { duplicateOf: { id: string; companyName: string; roleTitle: string } }> {
   const userId = await requireUserId();
   if (!force) {
-    const dup = await store.findDuplicateApplication(userId, input.companyName);
+    const dup = await store.findDuplicateApplication(userId, input.companyName, input.roleTitle);
     if (dup) {
       return { duplicateOf: { id: dup.id, companyName: dup.companyName, roleTitle: dup.roleTitle } };
     }

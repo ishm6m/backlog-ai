@@ -60,6 +60,9 @@ export function NavBar() {
             <DropdownMenuItem onClick={() => router.push("/billing")}>
               Billing &amp; usage
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { window.location.href = "/api/export"; }}>
+              Export CSV
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => logout()}>Log out</DropdownMenuItem>
           </DropdownMenuContent>

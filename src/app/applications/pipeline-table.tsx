@@ -43,7 +43,9 @@ export function PipelineTable({ applications }: { applications: Application[] })
   const filtered = q
     ? applications.filter(
         (a) =>
-          a.companyName.toLowerCase().includes(q) || a.roleTitle.toLowerCase().includes(q)
+          a.companyName.toLowerCase().includes(q) ||
+          a.roleTitle.toLowerCase().includes(q) ||
+          a.notes.toLowerCase().includes(q)
       )
     : applications;
 
@@ -122,7 +124,7 @@ export function PipelineTable({ applications }: { applications: Application[] })
         <Input
           ref={searchRef}
           type="search"
-          placeholder="Search company or role…  ( / )"
+          placeholder="Search company, role, or notes…  ( / )"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="max-w-sm"
