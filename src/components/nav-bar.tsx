@@ -1,19 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { CircleUserRound } from "lucide-react";
 import { logout } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
-  { href: "/", label: "Dashboard" },
+  { href: "/", label: "Today" },
   { href: "/applications", label: "Pipeline" },
-  { href: "/billing", label: "Billing" },
 ];
 
 export function NavBar() {
   const pathname = usePathname();
+  const router = useRouter();
   if (pathname.startsWith("/login") || pathname.startsWith("/signup")) return null;
 
   return (
@@ -40,11 +48,20 @@ export function NavBar() {
             );
           })}
         </nav>
-        <form action={logout}>
-          <Button type="submit" variant="ghost" size="sm">
-            Log out
-          </Button>
-        </form>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button variant="ghost" size="sm" aria-label="Account" />}
+          >
+            <CircleUserRound className="size-5" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => router.push("/billing")}>
+              Billing &amp; usage
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => logout()}>Log out</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

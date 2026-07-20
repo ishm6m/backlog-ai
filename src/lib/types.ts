@@ -1,15 +1,8 @@
-export const STAGES = [
-  "researching",
-  "applied",
-  "outreach_sent",
-  "project_sent",
-  "interviewing",
-  "offer",
-  "rejected",
-  "ghosted",
-  "withdrawn",
-] as const;
+export const STAGES = ["saved", "applied", "interviewing", "offer", "closed"] as const;
 export type Stage = (typeof STAGES)[number];
+
+export const CLOSE_REASONS = ["rejected", "ghosted", "withdrawn", "accepted"] as const;
+export type CloseReason = (typeof CLOSE_REASONS)[number];
 
 export const SOURCES = ["LinkedIn", "Company site", "Referral", "Other"] as const;
 export type Source = (typeof SOURCES)[number];
@@ -45,7 +38,9 @@ export type Application = {
   salaryRange: string | null;
   source: Source;
   stage: Stage;
+  closeReason: CloseReason | null;
   appliedDate: string | null;
+  followUpOn: string | null;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -62,6 +57,7 @@ export type Contact = {
   outreachStatus: OutreachStatus;
   outreachSentDate: string | null;
   repliedDate: string | null;
+  followUpOn: string | null;
   outreachChannel: OutreachChannel | null;
   messageSent: string;
   createdAt: string;
@@ -101,15 +97,18 @@ export type ActivityLogEntry = {
 };
 
 export const STAGE_LABELS: Record<Stage, string> = {
-  researching: "Researching",
+  saved: "Saved",
   applied: "Applied",
-  outreach_sent: "Outreach sent",
-  project_sent: "Project sent",
   interviewing: "Interviewing",
   offer: "Offer",
+  closed: "Closed",
+};
+
+export const CLOSE_REASON_LABELS: Record<CloseReason, string> = {
   rejected: "Rejected",
   ghosted: "Ghosted",
   withdrawn: "Withdrawn",
+  accepted: "Accepted offer",
 };
 
 export const OUTREACH_STATUS_LABELS: Record<OutreachStatus, string> = {

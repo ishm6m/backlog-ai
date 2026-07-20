@@ -60,7 +60,7 @@ export default async function ApplicationDetailPage({
           </Link>
           <div className="mt-2 flex items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight">{application.roleTitle}</h1>
-            <StageBadge stage={application.stage} />
+            <StageBadge stage={application.stage} closeReason={application.closeReason} />
           </div>
           <p className="text-sm text-muted-foreground">{application.companyName}</p>
         </div>

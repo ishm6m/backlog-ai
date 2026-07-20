@@ -6,7 +6,7 @@ import * as store from "@/lib/store";
 import { requireUserId } from "@/lib/auth/server";
 import { extractJobDetails, tailorResume as tailorResumeWithGroq, type ExtractedJob } from "@/lib/groq";
 import { discoverContacts as findContacts, type ContactCandidate } from "@/lib/discover-contacts";
-import type { Source, Stage, OutreachStatus, OutreachChannel, ProjectStatus, DocumentType } from "@/lib/types";
+import type { Source, Stage, CloseReason, OutreachStatus, OutreachChannel, ProjectStatus, DocumentType } from "@/lib/types";
 
 function str(formData: FormData, key: string): string {
   return (formData.get(key) as string | null)?.trim() ?? "";
@@ -15,6 +15,12 @@ function str(formData: FormData, key: string): string {
 function nullableStr(formData: FormData, key: string): string | null {
   const v = str(formData, key);
   return v === "" ? null : v;
+}
+
+function daysFromNow(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
 }
 
 export async function extractJobPosting(text: string): Promise<ExtractedJob | { error: string }> {
@@ -40,7 +46,9 @@ export async function createApplication(formData: FormData) {
     salaryRange: nullableStr(formData, "salaryRange"),
     source: str(formData, "source") as Source,
     stage: str(formData, "stage") as Stage,
+    closeReason: null,
     appliedDate: nullableStr(formData, "appliedDate"),
+    followUpOn: null,
     notes: str(formData, "notes"),
   });
   revalidatePath("/applications");
@@ -65,11 +73,33 @@ export async function updateApplication(id: string, formData: FormData) {
   revalidatePath(`/applications/${id}`);
 }
 
-export async function updateStage(id: string, stage: Stage) {
+export async function updateStage(id: string, stage: Stage, closeReason?: CloseReason) {
   const userId = await requireUserId();
-  await store.updateApplication(id, userId, { stage });
+  await store.updateApplication(id, userId, { stage, closeReason: closeReason ?? null });
+  revalidatePath("/");
   revalidatePath("/applications");
   revalidatePath(`/applications/${id}`);
+}
+
+export async function snoozeApplication(id: string, days: number) {
+  const userId = await requireUserId();
+  await store.updateApplication(id, userId, { followUpOn: daysFromNow(days) });
+  revalidatePath("/");
+}
+
+export async function snoozeContact(id: string, days: number) {
+  const userId = await requireUserId();
+  await store.updateContact(id, userId, { followUpOn: daysFromNow(days) });
+  revalidatePath("/");
+}
+
+export async function markFollowedUp(id: string) {
+  const userId = await requireUserId();
+  await store.updateContact(id, userId, {
+    outreachSentDate: daysFromNow(0),
+    followUpOn: null,
+  });
+  revalidatePath("/");
 }
 
 export async function deleteApplication(id: string) {
@@ -108,6 +138,7 @@ export async function addDiscoveredContact(
     outreachStatus: "not_contacted",
     outreachSentDate: null,
     repliedDate: null,
+    followUpOn: null,
     outreachChannel: null,
     messageSent: "",
   });
@@ -152,6 +183,7 @@ export async function createContact(applicationId: string, formData: FormData) {
     outreachStatus: (str(formData, "outreachStatus") || "not_contacted") as OutreachStatus,
     outreachSentDate: nullableStr(formData, "outreachSentDate"),
     repliedDate: nullableStr(formData, "repliedDate"),
+    followUpOn: null,
     outreachChannel: nullableStr(formData, "outreachChannel") as OutreachChannel | null,
     messageSent: str(formData, "messageSent"),
   });

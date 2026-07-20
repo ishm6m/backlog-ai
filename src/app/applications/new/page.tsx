@@ -124,7 +124,7 @@ export default function NewApplicationPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="stage">Stage</Label>
-            <Select name="stage" defaultValue="researching">
+            <Select name="stage" defaultValue="saved">
               <SelectTrigger id="stage" className="w-full">
                 <SelectValue />
               </SelectTrigger>

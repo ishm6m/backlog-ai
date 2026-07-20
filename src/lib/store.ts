@@ -15,7 +15,9 @@ function toApplication(r: any): Application {
     salaryRange: r.salary_range,
     source: r.source,
     stage: r.stage,
+    closeReason: r.close_reason,
     appliedDate: r.applied_date,
+    followUpOn: r.follow_up_on,
     notes: r.notes,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -34,6 +36,7 @@ function toContact(r: any): Contact {
     outreachStatus: r.outreach_status,
     outreachSentDate: r.outreach_sent_date,
     repliedDate: r.replied_date,
+    followUpOn: r.follow_up_on,
     outreachChannel: r.outreach_channel,
     messageSent: r.message_sent,
     createdAt: r.created_at,
@@ -103,9 +106,9 @@ export async function createApplication(
 ): Promise<Application> {
   const rows = await sql`
     insert into applications
-      (user_id, company_name, role_title, job_url, job_description, location, salary_range, source, stage, applied_date, notes)
+      (user_id, company_name, role_title, job_url, job_description, location, salary_range, source, stage, close_reason, applied_date, follow_up_on, notes)
     values
-      (${userId}, ${input.companyName}, ${input.roleTitle}, ${input.jobUrl}, ${input.jobDescription}, ${input.location}, ${input.salaryRange}, ${input.source}, ${input.stage}, ${input.appliedDate}, ${input.notes})
+      (${userId}, ${input.companyName}, ${input.roleTitle}, ${input.jobUrl}, ${input.jobDescription}, ${input.location}, ${input.salaryRange}, ${input.source}, ${input.stage}, ${input.closeReason}, ${input.appliedDate}, ${input.followUpOn}, ${input.notes})
     returning *
   `;
   const app = toApplication(rows[0]);
@@ -121,6 +124,13 @@ export async function updateApplication(
   const current = await getApplication(id, userId);
   if (!current) return undefined;
   const merged = { ...current, ...input };
+  // Moving to applied stamps the date; leaving closed clears the reason.
+  if (merged.stage === "applied" && current.stage !== "applied" && !merged.appliedDate) {
+    merged.appliedDate = new Date().toISOString().slice(0, 10);
+  }
+  if (merged.stage !== "closed") {
+    merged.closeReason = null;
+  }
   const rows = await sql`
     update applications set
       company_name = ${merged.companyName},
@@ -131,7 +141,9 @@ export async function updateApplication(
       salary_range = ${merged.salaryRange},
       source = ${merged.source},
       stage = ${merged.stage},
+      close_reason = ${merged.closeReason},
       applied_date = ${merged.appliedDate},
+      follow_up_on = ${merged.followUpOn},
       notes = ${merged.notes},
       updated_at = now()
     where id = ${id} and user_id = ${userId}
@@ -165,8 +177,8 @@ export async function createContact(
 ): Promise<Contact> {
   const rows = await sql`
     insert into contacts
-      (application_id, name, role, linkedin_url, twitter_url, email, outreach_status, outreach_sent_date, replied_date, outreach_channel, message_sent)
-    select ${input.applicationId}, ${input.name}, ${input.role}, ${input.linkedinUrl}, ${input.twitterUrl}, ${input.email}, ${input.outreachStatus}, ${input.outreachSentDate}, ${input.repliedDate}, ${input.outreachChannel}, ${input.messageSent}
+      (application_id, name, role, linkedin_url, twitter_url, email, outreach_status, outreach_sent_date, replied_date, follow_up_on, outreach_channel, message_sent)
+    select ${input.applicationId}, ${input.name}, ${input.role}, ${input.linkedinUrl}, ${input.twitterUrl}, ${input.email}, ${input.outreachStatus}, ${input.outreachSentDate}, ${input.repliedDate}, ${input.followUpOn}, ${input.outreachChannel}, ${input.messageSent}
     where exists (select 1 from applications where id = ${input.applicationId} and user_id = ${userId})
     returning *
   `;
@@ -198,6 +210,7 @@ export async function updateContact(
       outreach_status = ${merged.outreachStatus},
       outreach_sent_date = ${merged.outreachSentDate},
       replied_date = ${merged.repliedDate},
+      follow_up_on = ${merged.followUpOn},
       outreach_channel = ${merged.outreachChannel},
       message_sent = ${merged.messageSent}
     where id = ${id}
@@ -379,53 +392,66 @@ export async function checkAndRecordAiUsage(userId: string): Promise<boolean> {
   return true;
 }
 
-// dashboard
+// today view — next-action engine
+// ponytail: deterministic day thresholds (5/14/3) are constants, not settings
 
-const CLOSED_STAGES = ["offer", "rejected", "ghosted", "withdrawn"];
-
-export type StaleApplication = Application & { daysSinceUpdate: number };
-export type PendingOutreach = Contact & {
+export type FollowUpItem = Contact & {
   companyName: string;
   roleTitle: string;
   daysSinceSent: number;
 };
+export type ApplicationItem = Application & { daysSince: number };
 
-export async function getDashboardData(userId: string) {
-  const [stageCountRows, staleRows, pendingRows] = await Promise.all([
-    sql`select stage, count(*)::int as count from applications where user_id = ${userId} group by stage`,
+export async function getTodayData(userId: string) {
+  const [summaryRows, followUpRows, coldRows, savedRows] = await Promise.all([
     sql`
-      select *, extract(day from now() - updated_at)::int as days_since_update
-      from applications
-      where user_id = ${userId}
-        and stage != all(${CLOSED_STAGES})
-        and updated_at < now() - interval '7 days'
-      order by updated_at asc
+      select
+        count(*) filter (where stage != 'closed')::int as active,
+        count(*) filter (where stage = 'interviewing')::int as interviewing,
+        count(*) filter (where stage = 'offer')::int as offers,
+        count(*)::int as total
+      from applications where user_id = ${userId}
     `,
     sql`
       select c.*, a.company_name, a.role_title,
-        extract(day from now() - c.outreach_sent_date)::int as days_since_sent
+        (current_date - c.outreach_sent_date::date)::int as days_since_sent
       from contacts c
       join applications a on a.id = c.application_id
       where a.user_id = ${userId}
+        and a.stage != 'closed'
         and c.outreach_status = 'message_sent'
-        and c.outreach_sent_date < now() - interval '5 days'
+        and c.replied_date is null
+        and coalesce(c.follow_up_on, c.outreach_sent_date::date + 5) <= current_date
       order by c.outreach_sent_date asc
+    `,
+    sql`
+      select *, (current_date - coalesce(applied_date::date, updated_at::date))::int as days_since
+      from applications
+      where user_id = ${userId}
+        and stage = 'applied'
+        and coalesce(follow_up_on, coalesce(applied_date::date, updated_at::date) + 14) <= current_date
+      order by applied_date asc nulls last
+    `,
+    sql`
+      select *, (current_date - created_at::date)::int as days_since
+      from applications
+      where user_id = ${userId}
+        and stage = 'saved'
+        and coalesce(follow_up_on, created_at::date + 3) <= current_date
+      order by created_at asc
     `,
   ]);
 
-  const stageCounts = Object.fromEntries(stageCountRows.map((r: any) => [r.stage, r.count]));
-
-  const staleApplications: StaleApplication[] = staleRows.map((r: any) => ({
-    ...toApplication(r),
-    daysSinceUpdate: r.days_since_update,
-  }));
-
-  const pendingOutreach: PendingOutreach[] = pendingRows.map((r: any) => ({
-    ...toContact(r),
-    companyName: r.company_name,
-    roleTitle: r.role_title,
-    daysSinceSent: r.days_since_sent,
-  }));
-
-  return { stageCounts, staleApplications, pendingOutreach };
+  const s = summaryRows[0] as any;
+  return {
+    summary: { active: s.active, interviewing: s.interviewing, offers: s.offers, total: s.total },
+    followUps: followUpRows.map((r: any): FollowUpItem => ({
+      ...toContact(r),
+      companyName: r.company_name,
+      roleTitle: r.role_title,
+      daysSinceSent: r.days_since_sent,
+    })),
+    goingCold: coldRows.map((r: any): ApplicationItem => ({ ...toApplication(r), daysSince: r.days_since })),
+    savedNotApplied: savedRows.map((r: any): ApplicationItem => ({ ...toApplication(r), daysSince: r.days_since })),
+  };
 }
