@@ -22,6 +22,7 @@ function toApplication(r: any): Application {
     notes: r.notes,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    stageChangedAt: r.stage_changed_at,
   };
 }
 
@@ -117,7 +118,7 @@ export async function findDuplicateApplication(
 
 export async function createApplication(
   userId: string,
-  input: Omit<Application, "id" | "createdAt" | "updatedAt">
+  input: Omit<Application, "id" | "createdAt" | "updatedAt" | "stageChangedAt">
 ): Promise<Application> {
   const rows = await sql`
     insert into applications
@@ -146,6 +147,7 @@ export async function updateApplication(
   if (merged.stage !== "closed") {
     merged.closeReason = null;
   }
+  const stageChanged = merged.stage !== current.stage || merged.closeReason !== current.closeReason;
   const rows = await sql`
     update applications set
       company_name = ${merged.companyName},
@@ -161,7 +163,8 @@ export async function updateApplication(
       interview_date = ${merged.interviewDate},
       follow_up_on = ${merged.followUpOn},
       notes = ${merged.notes},
-      updated_at = now()
+      updated_at = now(),
+      stage_changed_at = ${stageChanged ? new Date().toISOString() : current.stageChangedAt}
     where id = ${id} and user_id = ${userId}
     returning *
   `;
@@ -444,10 +447,10 @@ export type FollowUpItem = Contact & {
   roleTitle: string;
   daysSinceSent: number;
 };
-export type ApplicationItem = Application & { daysSince: number };
+export type ApplicationItem = Application & { daysSince: number | null };
 
 export async function getTodayData(userId: string) {
-  const [summaryRows, followUpRows, coldRows, savedRows, interviewRows, deadRows] = await Promise.all([
+  const [summaryRows, followUpRows, coldRows, savedRows, interviewRows, offerRows, deadRows] = await Promise.all([
     sql`
       select
         count(*) filter (where stage != 'closed')::int as active,
@@ -469,12 +472,12 @@ export async function getTodayData(userId: string) {
       order by c.outreach_sent_date asc
     `,
     sql`
-      select *, (current_date - coalesce(applied_date::date, updated_at::date))::int as days_since
+      select *, (current_date - coalesce(applied_date::date, stage_changed_at::date))::int as days_since
       from applications
       where user_id = ${userId}
         and stage = 'applied'
-        and coalesce(follow_up_on, coalesce(applied_date::date, updated_at::date) + 14) <= current_date
-        and updated_at >= now() - interval '30 days'
+        and coalesce(follow_up_on, coalesce(applied_date::date, stage_changed_at::date) + 14) <= current_date
+        and stage_changed_at >= now() - interval '30 days'
       order by applied_date asc nulls last
     `,
     sql`
@@ -494,12 +497,19 @@ export async function getTodayData(userId: string) {
       order by interview_date asc
     `,
     sql`
-      select *, (current_date - updated_at::date)::int as days_since
+      select *, (follow_up_on::date - current_date)::int as days_since
+      from applications
+      where user_id = ${userId}
+        and stage = 'offer'
+      order by follow_up_on asc nulls last
+    `,
+    sql`
+      select *, (current_date - stage_changed_at::date)::int as days_since
       from applications
       where user_id = ${userId}
         and stage = 'applied'
-        and updated_at < now() - interval '30 days'
-      order by updated_at asc
+        and stage_changed_at < now() - interval '30 days'
+      order by stage_changed_at asc
     `,
   ]);
 
@@ -515,6 +525,8 @@ export async function getTodayData(userId: string) {
     goingCold: coldRows.map((r: any): ApplicationItem => ({ ...toApplication(r), daysSince: r.days_since })),
     savedNotApplied: savedRows.map((r: any): ApplicationItem => ({ ...toApplication(r), daysSince: r.days_since })),
     interviews: interviewRows.map((r: any): ApplicationItem => ({ ...toApplication(r), daysSince: r.days_since })),
+    // daysSince here = days until the respond-by date (negative = overdue), null when no deadline set
+    offers: offerRows.map((r: any): ApplicationItem => ({ ...toApplication(r), daysSince: r.days_since })),
     deadApplications: deadRows.map((r: any): ApplicationItem => ({ ...toApplication(r), daysSince: r.days_since })),
   };
 }

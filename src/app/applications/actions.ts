@@ -35,27 +35,6 @@ export async function extractJobPosting(text: string): Promise<ExtractedJob | { 
   }
 }
 
-export async function createApplication(formData: FormData) {
-  const userId = await requireUserId();
-  const app = await store.createApplication(userId, {
-    companyName: str(formData, "companyName"),
-    roleTitle: str(formData, "roleTitle"),
-    jobUrl: nullableStr(formData, "jobUrl"),
-    jobDescription: nullableStr(formData, "jobDescription"),
-    location: nullableStr(formData, "location"),
-    salaryRange: nullableStr(formData, "salaryRange"),
-    source: str(formData, "source") as Source,
-    stage: str(formData, "stage") as Stage,
-    closeReason: null,
-    appliedDate: nullableStr(formData, "appliedDate"),
-    interviewDate: null,
-    followUpOn: null,
-    notes: str(formData, "notes"),
-  });
-  revalidatePath("/applications");
-  redirect(`/applications/${app.id}`);
-}
-
 export async function quickCreateApplication(
   input: {
     companyName: string;
@@ -94,24 +73,6 @@ export async function quickCreateApplication(
   return { id: app.id };
 }
 
-export async function updateApplication(id: string, formData: FormData) {
-  const userId = await requireUserId();
-  await store.updateApplication(id, userId, {
-    companyName: str(formData, "companyName"),
-    roleTitle: str(formData, "roleTitle"),
-    jobUrl: nullableStr(formData, "jobUrl"),
-    jobDescription: nullableStr(formData, "jobDescription"),
-    location: nullableStr(formData, "location"),
-    salaryRange: nullableStr(formData, "salaryRange"),
-    source: str(formData, "source") as Source,
-    stage: str(formData, "stage") as Stage,
-    appliedDate: nullableStr(formData, "appliedDate"),
-    notes: str(formData, "notes"),
-  });
-  revalidatePath("/applications");
-  revalidatePath(`/applications/${id}`);
-}
-
 export type ApplicationFieldPatch = Partial<{
   companyName: string;
   roleTitle: string;
@@ -138,6 +99,17 @@ export async function bulkUpdateStage(ids: string[], stage: Stage, closeReason?:
   const userId = await requireUserId();
   for (const id of ids) {
     await store.updateApplication(id, userId, { stage, closeReason: closeReason ?? null });
+  }
+  revalidatePath("/");
+  revalidatePath("/applications");
+}
+
+export async function restoreStages(
+  entries: { id: string; stage: Stage; closeReason: CloseReason | null }[]
+) {
+  const userId = await requireUserId();
+  for (const { id, stage, closeReason } of entries) {
+    await store.updateApplication(id, userId, { stage, closeReason });
   }
   revalidatePath("/");
   revalidatePath("/applications");

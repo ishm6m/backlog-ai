@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -26,7 +25,17 @@ type Extracted = {
   jobDescription: string;
 };
 
-export function QuickAdd() {
+export function QuickAdd({
+  global = false,
+  label = "Add",
+  variant = "default",
+  size = "sm",
+}: {
+  global?: boolean;
+  label?: string;
+  variant?: "default" | "outline";
+  size?: "sm" | "default";
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pasted, setPasted] = useState("");
@@ -34,6 +43,27 @@ export function QuickAdd() {
   const [extracted, setExtracted] = useState<Extracted | null>(null);
   const [duplicate, setDuplicate] = useState<{ id: string; companyName: string; roleTitle: string } | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!global) return;
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setOpen(true);
+        return;
+      }
+      const target = e.target as HTMLElement;
+      const typing =
+        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable;
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "c") {
+        e.preventDefault();
+        setOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [global]);
 
   function reset() {
     setPasted("");
@@ -75,8 +105,8 @@ export function QuickAdd() {
         if (!v) reset();
       }}
     >
-      <DialogTrigger render={<Button size="sm" />}>
-        <Plus /> Add
+      <DialogTrigger render={<Button size={size} variant={variant} />}>
+        <Plus /> {label}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
@@ -92,14 +122,7 @@ export function QuickAdd() {
               onChange={(e) => setPasted(e.target.value)}
               placeholder="Paste the job posting — AI pulls out the company, role, and details"
             />
-            <div className="flex items-center justify-between">
-              <Link
-                href="/applications/new"
-                onClick={() => setOpen(false)}
-                className="text-sm text-muted-foreground hover:text-foreground"
-              >
-                Use the full form instead
-              </Link>
+            <div className="flex justify-end">
               <Button onClick={handleExtract} disabled={extracting || !pasted.trim()}>
                 {extracting ? "Extracting…" : "Extract"}
               </Button>

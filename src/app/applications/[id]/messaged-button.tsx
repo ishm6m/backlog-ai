@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Send } from "lucide-react";
-import { toast } from "sonner";
 import { markMessaged } from "@/app/applications/actions";
+import { runAction } from "@/lib/run-action";
 import { Button } from "@/components/ui/button";
 
 export function MessagedButton({
@@ -23,9 +23,11 @@ export function MessagedButton({
       disabled={pending}
       onClick={async () => {
         setPending(true);
-        await markMessaged(contactId, applicationId);
+        await runAction(
+          () => markMessaged(contactId, applicationId),
+          `Logged message to ${contactName} — follow-up reminder in 5 days`
+        );
         setPending(false);
-        toast.success(`Logged message to ${contactName} — follow-up reminder in 5 days`);
       }}
     >
       <Send /> {pending ? "Logging…" : "Messaged"}

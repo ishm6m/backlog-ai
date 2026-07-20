@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { bulkUpdateStage } from "@/app/applications/actions";
+import { runAction } from "@/lib/run-action";
 import { StageMenu } from "@/components/stage-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,13 +107,13 @@ export function PipelineTable({ applications }: { applications: Application[] })
 
   async function applyBulk(stage: Stage, closeReason?: CloseReason) {
     const ids = Array.from(selected);
-    await bulkUpdateStage(ids, stage, closeReason);
-    setSelected(new Set());
-    toast.success(
+    const ok = await runAction(
+      () => bulkUpdateStage(ids, stage, closeReason),
       `${ids.length} application${ids.length > 1 ? "s" : ""} → ${
         closeReason ? CLOSE_REASON_LABELS[closeReason] : STAGE_LABELS[stage]
       }`
     );
+    if (ok) setSelected(new Set());
   }
 
   return (

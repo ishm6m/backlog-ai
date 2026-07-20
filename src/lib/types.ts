@@ -45,6 +45,7 @@ export type Application = {
   notes: string;
   createdAt: string;
   updatedAt: string;
+  stageChangedAt: string;
 };
 
 export type Contact = {

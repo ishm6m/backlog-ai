@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
   bulkUpdateStage,
   markFollowedUp,
+  restoreStages,
   snoozeApplication,
   snoozeContact,
   updateStage,
 } from "@/app/applications/actions";
+import { runAction } from "@/lib/run-action";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { ApplicationItem, FollowUpItem } from "@/lib/store";
+import type { Stage, CloseReason } from "@/lib/types";
 
 const SNOOZE_OPTIONS = [
   { label: "Tomorrow", days: 1 },
@@ -35,10 +37,7 @@ function SnoozeMenu({ onSnooze }: { onSnooze: (days: number) => Promise<void> })
         {SNOOZE_OPTIONS.map(({ label, days }) => (
           <DropdownMenuItem
             key={days}
-            onClick={async () => {
-              await onSnooze(days);
-              toast.success(`Snoozed — back ${label.toLowerCase()}`);
-            }}
+            onClick={() => runAction(() => onSnooze(days), `Snoozed — back ${label.toLowerCase()}`)}
           >
             {label}
           </DropdownMenuItem>
@@ -57,6 +56,7 @@ function Row({ children }: { children: React.ReactNode }) {
 }
 
 export function FollowUpRow({ item }: { item: FollowUpItem }) {
+  const contactHref = item.linkedinUrl || (item.email ? `mailto:${item.email}` : null);
   return (
     <Row>
       <Link href={`/applications/${item.applicationId}`} className="min-w-0 flex-1 hover:underline">
@@ -66,13 +66,20 @@ export function FollowUpRow({ item }: { item: FollowUpItem }) {
         </span>
       </Link>
       <div className="flex shrink-0 items-center gap-1">
+        {contactHref && (
+          <Button
+            variant="ghost"
+            size="sm"
+            nativeButton={false}
+            render={<a href={contactHref} target="_blank" rel="noreferrer" />}
+          >
+            Message
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
-          onClick={async () => {
-            await markFollowedUp(item.id);
-            toast.success(`Logged follow-up with ${item.name}`);
-          }}
+          onClick={() => runAction(() => markFollowedUp(item.id), `Logged follow-up with ${item.name}`)}
         >
           Done
         </Button>
@@ -95,10 +102,13 @@ export function ColdRow({ item }: { item: ApplicationItem }) {
         <Button
           variant="outline"
           size="sm"
-          onClick={async () => {
-            await updateStage(item.id, "closed", "ghosted");
-            toast.success(`Closed ${item.companyName} as ghosted`);
-          }}
+          onClick={() =>
+            runAction(
+              () => updateStage(item.id, "closed", "ghosted"),
+              `Closed ${item.companyName} as ghosted`,
+              () => updateStage(item.id, item.stage, item.closeReason ?? undefined)
+            )
+          }
         >
           Close as ghosted
         </Button>
@@ -122,6 +132,27 @@ export function InterviewRow({ item }: { item: ApplicationItem }) {
   );
 }
 
+export function OfferRow({ item }: { item: ApplicationItem }) {
+  const due =
+    item.daysSince === null
+      ? "no response-by date set"
+      : item.daysSince < 0
+        ? `${-item.daysSince}d overdue`
+        : item.daysSince === 0
+          ? "respond today"
+          : `respond in ${item.daysSince}d`;
+  return (
+    <Row>
+      <Link href={`/applications/${item.id}`} className="min-w-0 flex-1 hover:underline">
+        <span className="font-medium">{item.companyName}</span>
+        <span className="ml-2 text-sm text-muted-foreground">
+          {item.roleTitle} · {due}
+        </span>
+      </Link>
+    </Row>
+  );
+}
+
 export function DeadApplicationsBanner({ items }: { items: ApplicationItem[] }) {
   const router = useRouter();
   return (
@@ -138,10 +169,13 @@ export function DeadApplicationsBanner({ items }: { items: ApplicationItem[] }) 
         <Button
           variant="outline"
           size="sm"
-          onClick={async () => {
-            await bulkUpdateStage(items.map((i) => i.id), "closed", "ghosted");
-            toast.success(`Closed ${items.length} as ghosted — reopen anytime from the pipeline`);
-          }}
+          onClick={() =>
+            runAction(
+              () => bulkUpdateStage(items.map((i) => i.id), "closed", "ghosted"),
+              `Closed ${items.length} as ghosted`,
+              () => restoreStages(items.map((i) => ({ id: i.id, stage: i.stage, closeReason: i.closeReason })))
+            )
+          }
         >
           Close all as ghosted
         </Button>
@@ -163,20 +197,20 @@ export function SavedRow({ item }: { item: ApplicationItem }) {
         <Button
           variant="outline"
           size="sm"
-          onClick={async () => {
-            await updateStage(item.id, "applied");
-            toast.success(`Marked ${item.companyName} as applied`);
-          }}
+          onClick={() => runAction(() => updateStage(item.id, "applied"), `Marked ${item.companyName} as applied`)}
         >
           I applied
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          onClick={async () => {
-            await updateStage(item.id, "closed", "withdrawn");
-            toast.success(`Closed ${item.companyName}`);
-          }}
+          onClick={() =>
+            runAction(
+              () => updateStage(item.id, "closed", "withdrawn"),
+              `Closed ${item.companyName}`,
+              () => updateStage(item.id, item.stage, item.closeReason ?? undefined)
+            )
+          }
         >
           Close
         </Button>

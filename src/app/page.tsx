@@ -1,20 +1,20 @@
-import Link from "next/link";
 import { getTodayData } from "@/lib/store";
 import { requireUserId } from "@/lib/auth/server";
-import { Button } from "@/components/ui/button";
-import { ColdRow, DeadApplicationsBanner, FollowUpRow, InterviewRow, SavedRow } from "./today-rows";
+import { QuickAdd } from "@/components/quick-add";
+import { ColdRow, DeadApplicationsBanner, FollowUpRow, InterviewRow, OfferRow, SavedRow } from "./today-rows";
 
 export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
   const userId = await requireUserId();
-  const { summary, followUps, goingCold, savedNotApplied, interviews, deadApplications } =
+  const { summary, followUps, goingCold, savedNotApplied, interviews, offers, deadApplications } =
     await getTodayData(userId);
   const nothingDue =
     followUps.length === 0 &&
     goingCold.length === 0 &&
     savedNotApplied.length === 0 &&
     interviews.length === 0 &&
+    offers.length === 0 &&
     deadApplications.length === 0;
 
   const summaryParts = [`${summary.active} active`];
@@ -33,9 +33,7 @@ export default async function TodayPage() {
           <p className="mb-4 text-sm text-muted-foreground">
             Your pipeline is empty. Add your first application to start.
           </p>
-          <Button render={<Link href="/applications/new" />} nativeButton={false}>
-            Add an application
-          </Button>
+          <QuickAdd label="Add an application" />
         </div>
       ) : nothingDue ? (
         <div className="rounded-xl border border-dashed py-16 text-center text-sm text-muted-foreground">
@@ -50,6 +48,16 @@ export default async function TodayPage() {
               </h2>
               {interviews.map((item) => (
                 <InterviewRow key={item.id} item={item} />
+              ))}
+            </section>
+          )}
+          {offers.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-xs font-medium text-muted-foreground">
+                Offers ({offers.length})
+              </h2>
+              {offers.map((item) => (
+                <OfferRow key={item.id} item={item} />
               ))}
             </section>
           )}

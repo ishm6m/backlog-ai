@@ -49,7 +49,7 @@ export function NavBar() {
             );
           })}
         </nav>
-        <QuickAdd />
+        <QuickAdd global />
         <DropdownMenu>
           <DropdownMenuTrigger
             render={<Button variant="ghost" size="sm" aria-label="Account" />}
