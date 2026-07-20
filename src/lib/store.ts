@@ -141,7 +141,7 @@ export async function deleteAccount(userId: string) {
   await sql`delete from user_profile where user_id = ${userId}`;
   await sql`delete from subscriptions where user_id = ${userId}`;
   await sql`delete from ai_usage_log where user_id = ${userId}`;
-  await sql`delete from neon_auth."user" where id = ${userId}`;
+  await sql`delete from neon_auth."user" where id::text = ${userId}`;
 }
 
 export async function createApplication(
@@ -481,7 +481,7 @@ export async function listDigestRecipients(): Promise<{ userId: string; email: s
   const rows = await sql`
     select distinct u.id, u.email
     from applications a
-    join neon_auth."user" u on u.id = a.user_id
+    join neon_auth."user" u on u.id::text = a.user_id
     where a.stage != 'closed' and u."emailVerified" = true
   `;
   return rows.map((r: any) => ({ userId: r.id, email: r.email }));
